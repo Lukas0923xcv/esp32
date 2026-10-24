@@ -32,12 +32,12 @@ class LilyGoNetzwaechterApp extends StatelessWidget {
           surface: Color(0xFF161F30),
           error: Color(0xFFEF4444),
         ),
-        cardTheme: CardTheme(
-          color: const Color(0xFF161F30),
+        cardTheme: const CardThemeData(
+          color: Color(0xFF161F30),
           elevation: 4,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFF223049), width: 1),
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            side: BorderSide(color: Color(0xFF223049), width: 1),
           ),
         ),
         appBarTheme: const AppBarTheme(
@@ -119,7 +119,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // Measurement State
   PowerStatus _powerStatus = PowerStatus.unknown;
-  PowerStatus _previousPowerStatus = PowerStatus.unknown;
   double _psuVoltage = 0.0;
   int _batteryPercent = 0;
   double _batteryVoltage = 0.0;
@@ -551,7 +550,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withOpacity(0.2),
+                color: const Color(0xFF10B981).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
@@ -637,7 +636,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         statusIcon = Icons.error_outline;
         break;
       case ConnectionStatus.disconnected:
-      default:
         statusColor = Colors.grey;
         statusLabel = 'GETRENNT';
         statusIcon = Icons.bluetooth_disabled;
@@ -674,7 +672,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   _statusMessage,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withValues(alpha: 0.6),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -685,9 +683,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.15),
+              color: statusColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: statusColor.withOpacity(0.4)),
+              border: Border.all(color: statusColor.withValues(alpha: 0.4)),
             ),
             child: Text(
               statusLabel,
@@ -747,17 +745,17 @@ class _DashboardScreenState extends State<DashboardScreen>
           )!;
           shadows = [
             BoxShadow(
-              color: const Color(0xFFEF4444).withOpacity(0.35 * pulseVal),
+              color: const Color(0xFFEF4444).withValues(alpha: 0.35 * pulseVal),
               blurRadius: 20 * pulseVal,
               spreadRadius: 2 * pulseVal,
             ),
           ];
         } else if (isOnline) {
           borderColor = const Color(0xFF10B981);
-          backgroundColor = const Color(0xFF064E3B).withOpacity(0.35);
+          backgroundColor = const Color(0xFF064E3B).withValues(alpha: 0.35);
           shadows = [
             BoxShadow(
-              color: const Color(0xFF10B981).withOpacity(0.15),
+              color: const Color(0xFF10B981).withValues(alpha: 0.15),
               blurRadius: 12,
               spreadRadius: 1,
             ),
@@ -788,9 +786,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: isOutage
-                              ? const Color(0xFFEF4444).withOpacity(0.2)
+                              ? const Color(0xFFEF4444).withValues(alpha: 0.2)
                               : isOnline
-                                  ? const Color(0xFF10B981).withOpacity(0.2)
+                                  ? const Color(0xFF10B981).withValues(alpha: 0.2)
                                   : Colors.white10,
                           shape: BoxShape.circle,
                         ),
@@ -818,7 +816,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 1.2,
-                              color: Colors.white.withOpacity(0.6),
+                              color: Colors.white.withValues(alpha: 0.6),
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -848,9 +846,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: isOutage
-                          ? const Color(0xFFEF4444).withOpacity(0.25)
+                          ? const Color(0xFFEF4444).withValues(alpha: 0.25)
                           : isOnline
-                              ? const Color(0xFF10B981).withOpacity(0.25)
+                              ? const Color(0xFF10B981).withValues(alpha: 0.25)
                               : Colors.white10,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
@@ -884,7 +882,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.25),
+                  color: Colors.black.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -906,7 +904,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           fontSize: 12,
                           color: isOutage
                               ? const Color(0xFFFCA5A5)
-                              : Colors.white.withOpacity(0.8),
+                              : Colors.white.withValues(alpha: 0.8),
                         ),
                       ),
                     ),
@@ -921,7 +919,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     'Letztes Signal: ${DateFormat('HH:mm:ss').format(_lastUpdate!)} Uhr',
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.white.withOpacity(0.4),
+                      color: Colors.white.withValues(alpha: 0.4),
                     ),
                   ),
                 ),
@@ -969,7 +967,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.1,
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                 ),
               ),
               Icon(battIcon, color: battColor, size: 22),
@@ -1012,7 +1010,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 _batteryVoltage > 3.7 ? 'Geladen' : 'Entladen',
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
             ],
@@ -1045,7 +1043,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.1,
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                 ),
               ),
               Icon(
@@ -1090,7 +1088,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 psuActive ? 'Spannung stabil' : 'Keine Eingangsspannung',
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -1158,7 +1156,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: Center(
               child: Text(
                 'Noch keine Ereignisse aufgezeichnet.',
-                style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
               ),
             ),
           )
@@ -1183,7 +1181,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: entry.color.withOpacity(0.15),
+                        color: entry.color.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(entry.icon, color: entry.color, size: 18),
@@ -1208,7 +1206,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 DateFormat('HH:mm:ss').format(entry.timestamp),
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Colors.white.withOpacity(0.4),
+                                  color: Colors.white.withValues(alpha: 0.4),
                                 ),
                               ),
                             ],
@@ -1218,7 +1216,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             entry.details,
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.white.withOpacity(0.7),
+                              color: Colors.white.withValues(alpha: 0.7),
                             ),
                           ),
                         ],
@@ -1276,7 +1274,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         child: Text(
                           'Keine gekoppelten Geräte gefunden.\nBitte zuerst in den Android Bluetooth-Einstellungen koppeln.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white.withOpacity(0.6)),
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
                         ),
                       ),
                     )
@@ -1315,7 +1313,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               device.address,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.white.withOpacity(0.5),
+                                color: Colors.white.withValues(alpha: 0.5),
                               ),
                             ),
                             trailing: isSelected

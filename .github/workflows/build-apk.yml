@@ -32,6 +32,16 @@ jobs:
         run: |
           cd android-app
           flutter pub get
+
+          # Compatibility patch for flutter_bluetooth_serial with Android Gradle Plugin 8+
+          PUB_CACHE_DIR="${HOME}/.pub-cache/hosted/pub.dev"
+          PLUGIN_DIR=$(find "$PUB_CACHE_DIR" -maxdepth 1 -name "flutter_bluetooth_serial-*" | head -n 1)
+          if [ -d "$PLUGIN_DIR" ]; then
+            echo "Patching namespace & compileSdkVersion for flutter_bluetooth_serial..."
+            sed -i '/android {/a \    namespace "io.github.edufolly.flutterbluetoothserial"' "$PLUGIN_DIR/android/build.gradle"
+            sed -i 's/compileSdkVersion 30/compileSdkVersion 34/' "$PLUGIN_DIR/android/build.gradle"
+          fi
+
           flutter build apk --release
 
       - name: Upload Release APK
