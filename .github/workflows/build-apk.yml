@@ -42,20 +42,20 @@ jobs:
             sed -i 's/compileSdkVersion 30/compileSdkVersion 34/' "$PLUGIN_DIR/android/build.gradle"
           fi
 
-          flutter build apk --release -v 2>&1 | tee build.log || (echo "=== BUILD ERROR TAIL ===" && tail -n 120 build.log && exit 1)
+          flutter build apk --release
 
-          # Ensure release APK is at android-app/build/app/outputs/flutter-apk/app-release.apk
-          if [ ! -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
-            APK_PATH=$(find .. -name "app-release.apk" | head -n 1)
-            echo "Found APK at: $APK_PATH"
-            mkdir -p build/app/outputs/flutter-apk
-            cp "$APK_PATH" build/app/outputs/flutter-apk/app-release.apk
+          cd ..
+          mkdir -p android-app/build/app/outputs/flutter-apk
+          APK_FILE=$(find . -name "app-release.apk" | head -n 1)
+          echo "Found APK at: $APK_FILE"
+          if [ -n "$APK_FILE" ] && [ "$APK_FILE" != "./android-app/build/app/outputs/flutter-apk/app-release.apk" ]; then
+            cp "$APK_FILE" android-app/build/app/outputs/flutter-apk/app-release.apk
           fi
-          ls -la build/app/outputs/flutter-apk/app-release.apk
+          ls -lh android-app/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: lilygo-netzwaechter-release-apk
+          name: app-release
           path: android-app/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
