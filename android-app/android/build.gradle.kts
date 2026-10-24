@@ -27,6 +27,7 @@ subprojects {
                         "missing.namespace.${project.name}"
                     }
                 }
+                compileSdkVersion("android-34")
             }
         }
     }

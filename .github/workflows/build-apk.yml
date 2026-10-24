@@ -42,7 +42,7 @@ jobs:
             sed -i 's/compileSdkVersion 30/compileSdkVersion 34/' "$PLUGIN_DIR/android/build.gradle"
           fi
 
-          flutter build apk --release
+          flutter build apk --release --android-skip-build-dependency-validation
 
           cd ..
           mkdir -p android-app/build/app/outputs/flutter-apk
