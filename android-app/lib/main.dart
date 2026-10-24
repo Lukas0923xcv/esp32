@@ -243,8 +243,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _triggerPowerRestoredNotification(double psuVolt) async {
-    final AndroidNotificationDetails androidDetails =
-        const AndroidNotificationDetails(
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
       'lilygo_power_outage_channel',
       'LilyGO Stromausfall-Alarm',
       channelDescription: 'Benachrichtigung bei Wiederkehr des Netzstroms',
@@ -255,7 +255,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       color: Color(0xFF10B981),
     );
 
-    final NotificationDetails notificationDetails =
+    const NotificationDetails notificationDetails =
         NotificationDetails(android: androidDetails);
 
     try {
