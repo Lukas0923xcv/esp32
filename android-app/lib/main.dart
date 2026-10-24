@@ -124,6 +124,13 @@ class _DashboardScreenState extends State<DashboardScreen>
   double _batteryVoltage = 0.0;
   DateTime? _lastUpdate;
 
+  // Outage debounce: a single (or short burst of) low PSU readings is ignored
+  // so brief voltage dips don't trigger a false Stromausfall alarm.
+  static const Duration _outageConfirmDuration = Duration(seconds: 10);
+  static const int _outageConfirmReadings = 3;
+  DateTime? _outageSince;
+  int _outageReadings = 0;
+
   // Event Log
   final List<StatusLogEntry> _eventLogs = [];
 
@@ -367,6 +374,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   void _handleDisconnect([String? reason]) {
     final msg = reason ?? 'Verbindung getrennt';
+    _outageSince = null;
+    _outageReadings = 0;
     setState(() {
       _connectionStatus = ConnectionStatus.disconnected;
       _statusMessage = msg;
@@ -386,7 +395,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   // Regex Parsing & Status Logic
   // ---------------------------------------------------------------------------
 
-  void _parseSerialLine(String line) {
+  void _parseSerialLine(String line, {bool debounce = true}) {
     final match = _serialRegex.firstMatch(line);
     if (match == null) return;
 
@@ -400,6 +409,26 @@ class _DashboardScreenState extends State<DashboardScreen>
       newStatus = PowerStatus.outage;
     } else if (statusStr.contains('ONLINE')) {
       newStatus = PowerStatus.online;
+    }
+
+    if (debounce && newStatus == PowerStatus.outage) {
+      _outageSince ??= DateTime.now();
+      _outageReadings++;
+      final bool confirmed = _outageReadings >= _outageConfirmReadings &&
+          DateTime.now().difference(_outageSince!) >= _outageConfirmDuration;
+      if (!confirmed && _powerStatus != PowerStatus.outage) {
+        // Not yet confirmed: keep the previous status, but refresh the readings.
+        setState(() {
+          _psuVoltage = psuVolt;
+          _batteryPercent = battPct.clamp(0, 100);
+          _batteryVoltage = battVolt;
+          _lastUpdate = DateTime.now();
+        });
+        return;
+      }
+    } else {
+      _outageSince = null;
+      _outageReadings = 0;
     }
 
     _applyNewStatus(
@@ -521,14 +550,15 @@ class _DashboardScreenState extends State<DashboardScreen>
       );
 
       // Initial normal status
-      _parseSerialLine('Netz: [ONLINE] | Netzteil: 5.08V | Akku: 85% (3.95V)');
+      _parseSerialLine('Netz: [ONLINE] | Netzteil: 5.08V | Akku: 85% (3.95V)',
+          debounce: false);
 
       int tick = 0;
       _simulationTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
         tick++;
         if (tick % 4 == 2) {
           // Simulate outage
-          _parseSerialLine('Netz: [STROMAUSFALL] | Netzteil: 0.12V | Akku: 84% (3.93V)');
+          _parseSerialLine('Netz: [STROMAUSFALL] | Netzteil: 0.12V | Akku: 84% (3.93V)', debounce: false);
         } else if (tick % 4 == 0) {
           // Simulate recovery
           _parseSerialLine('Netz: [ONLINE] | Netzteil: 5.05V | Akku: 85% (3.97V)');
