@@ -100,7 +100,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   // "Netz: [ONLINE] | Netzteil: 5.08V | Akku: 85% (3.95V)"
   // "Netz: [STROMAUSFALL] | Netzteil: 0.12V | Akku: 84% (3.93V)"
   final RegExp _serialRegex = RegExp(
-    r'Netz:\s*\[(.*?)\]\s*\|\s*Netzteil:\s*([0-9.]+)\s*V\s*\|\s*Akku:\s*([0-9]+)\s*%\s*\(([0-9.]+)\s*V\)',
+    r'Netz:\s*\[(.*?)\]\s*\|\s*Netzteil(?:-In)?:\s*([0-9.]+)\s*V\s*\|\s*Akku:\s*([0-9]+)\s*%\s*\(([0-9.]+)\s*V\)',
     caseSensitive: false,
   );
 
