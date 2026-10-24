@@ -42,7 +42,14 @@ jobs:
             sed -i 's/compileSdkVersion 30/compileSdkVersion 34/' "$PLUGIN_DIR/android/build.gradle"
           fi
 
-          flutter build apk --release
+          flutter build apk --release -v 2>&1 | tee build.log || (echo "=== BUILD ERROR TAIL ===" && tail -n 150 build.log && exit 1)
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-failure-log
+          path: android-app/build.log
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
