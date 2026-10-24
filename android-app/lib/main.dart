@@ -8,6 +8,10 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
 
+// Bump on every change; the build number is injected by CI (--dart-define).
+const String kAppVersion = '1.2.0';
+const String kBuildNumber = String.fromEnvironment('BUILD_NUMBER', defaultValue: 'dev');
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const LilyGoNetzwaechterApp());
@@ -123,6 +127,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _batteryPercent = 0;
   double _batteryVoltage = 0.0;
   DateTime? _lastUpdate;
+  String _lastRawLine = '';
 
   // Outage debounce: a single (or short burst of) low PSU readings is ignored
   // so brief voltage dips don't trigger a false Stromausfall alarm.
@@ -396,6 +401,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   // ---------------------------------------------------------------------------
 
   void _parseSerialLine(String line, {bool debounce = true}) {
+    setState(() => _lastRawLine = line);
     final match = _serialRegex.firstMatch(line);
     if (match == null) return;
 
@@ -590,9 +596,21 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'LilyGO-Netzwächter',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'LilyGO-Netzwächter',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  'v$kAppVersion (Build $kBuildNumber)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -951,6 +969,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                       fontSize: 11,
                       color: Colors.white.withValues(alpha: 0.4),
                     ),
+                  ),
+                ),
+              ],
+              if (_lastRawLine.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Empfangen: $_lastRawLine',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white.withValues(alpha: 0.4),
                   ),
                 ),
               ],
