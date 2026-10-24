@@ -9,7 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
 
 // Bump on every change; the build number is injected by CI (--dart-define).
-const String kAppVersion = '1.2.0';
+const String kAppVersion = '1.2.1';
 const String kBuildNumber = String.fromEnvironment('BUILD_NUMBER', defaultValue: 'dev');
 
 void main() async {
@@ -131,8 +131,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // Outage debounce: a single (or short burst of) low PSU readings is ignored
   // so brief voltage dips don't trigger a false Stromausfall alarm.
-  static const Duration _outageConfirmDuration = Duration(seconds: 10);
-  static const int _outageConfirmReadings = 3;
+  static const Duration _outageConfirmDuration = Duration(seconds: 2);
+  static const int _outageConfirmReadings = 2;
   DateTime? _outageSince;
   int _outageReadings = 0;
 
