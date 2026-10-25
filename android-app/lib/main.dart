@@ -10,7 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Bump on every change; the build number is injected by CI (--dart-define).
-const String kAppVersion = '1.4.0';
+const String kAppVersion = '1.4.1';
 const String kBuildNumber = String.fromEnvironment('BUILD_NUMBER', defaultValue: 'dev');
 
 void main() async {
@@ -715,13 +715,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                 const SizedBox(height: 16),
                 _buildPowerStatusTile(),
                 const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: _buildBatteryTile()),
-                    const SizedBox(width: 14),
-                    Expanded(child: _buildPowerSupplyTile()),
-                  ],
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: _buildBatteryTile()),
+                      const SizedBox(width: 14),
+                      Expanded(child: _buildPowerSupplyTile()),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _buildDiagnosticsTile(),
