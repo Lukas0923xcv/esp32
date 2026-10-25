@@ -10,7 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Bump on every change; the build number is injected by CI (--dart-define).
-const String kAppVersion = '1.3.0';
+const String kAppVersion = '1.4.0';
 const String kBuildNumber = String.fromEnvironment('BUILD_NUMBER', defaultValue: 'dev');
 
 void main() async {
@@ -29,20 +29,20 @@ class LilyGoNetzwaechterApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
       darkTheme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0B0F19),
+        scaffoldBackgroundColor: const Color(0xFF0A0F1C),
         primaryColor: const Color(0xFF10B981),
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF10B981),
           secondary: Color(0xFF38BDF8),
-          surface: Color(0xFF161F30),
+          surface: Color(0xFF131A2A),
           error: Color(0xFFEF4444),
         ),
         cardTheme: const CardThemeData(
-          color: Color(0xFF161F30),
+          color: Color(0xFF131A2A),
           elevation: 4,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(16)),
-            side: BorderSide(color: Color(0xFF223049), width: 1),
+            side: BorderSide(color: Color(0xFF1F2A40), width: 1),
           ),
         ),
         appBarTheme: const AppBarTheme(
@@ -660,36 +660,27 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
+        backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        titleSpacing: 20,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.security_rounded,
-                color: Color(0xFF10B981),
-                size: 22,
+            const Text(
+              'Netzwächter',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
               ),
             ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'LilyGO-Netzwächter',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'v$kAppVersion (Build $kBuildNumber)',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white.withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
+            Text(
+              'v$kAppVersion · Build $kBuildNumber',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withValues(alpha: 0.45),
+              ),
             ),
           ],
         ),
@@ -697,16 +688,17 @@ class _DashboardScreenState extends State<DashboardScreen>
           IconButton(
             tooltip: _isSimulationActive ? 'Demo beenden' : 'Demo-Modus starten',
             icon: Icon(
-              _isSimulationActive ? Icons.pause_circle : Icons.play_circle_fill,
-              color: _isSimulationActive ? const Color(0xFFF59E0B) : Colors.white60,
+              _isSimulationActive ? Icons.stop_circle_outlined : Icons.science_outlined,
+              color: _isSimulationActive ? const Color(0xFFF59E0B) : Colors.white54,
             ),
             onPressed: _toggleSimulation,
           ),
           IconButton(
             tooltip: 'Bluetooth-Geräte verwalten',
-            icon: const Icon(Icons.bluetooth),
+            icon: const Icon(Icons.bluetooth_rounded, color: Colors.white70),
             onPressed: _showDevicePickerModal,
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
@@ -715,7 +707,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           color: const Color(0xFF10B981),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -724,14 +716,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                 _buildPowerStatusTile(),
                 const SizedBox(height: 16),
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(child: _buildBatteryTile()),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Expanded(child: _buildPowerSupplyTile()),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                _buildDiagnosticsTile(),
+                const SizedBox(height: 24),
                 _buildEventLogSection(),
               ],
             ),
@@ -741,47 +735,79 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  BoxDecoration _cardDecoration({Color? border}) => BoxDecoration(
+        color: const Color(0xFF131A2A),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: border ?? const Color(0xFF1F2A40)),
+      );
+
+  Widget _cardLabel(String text, IconData icon, Color color) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.0,
+              color: Colors.white.withValues(alpha: 0.55),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildConnectionBar() {
     Color statusColor;
     String statusLabel;
-    IconData statusIcon;
 
     switch (_connectionStatus) {
       case ConnectionStatus.connected:
         statusColor = const Color(0xFF10B981);
-        statusLabel = _isSimulationActive ? 'DEMO-MODUS AKTIV' : 'VERBUNDEN';
-        statusIcon = Icons.bluetooth_connected;
+        statusLabel = _isSimulationActive ? 'Demo' : 'Verbunden';
         break;
       case ConnectionStatus.connecting:
         statusColor = const Color(0xFFF59E0B);
-        statusLabel = 'VERBINDE...';
-        statusIcon = Icons.bluetooth_searching;
+        statusLabel = 'Verbinde …';
         break;
       case ConnectionStatus.error:
         statusColor = const Color(0xFFEF4444);
-        statusLabel = 'FEHLER';
-        statusIcon = Icons.error_outline;
+        statusLabel = 'Fehler';
         break;
       case ConnectionStatus.disconnected:
         statusColor = Colors.grey;
-        statusLabel = 'GETRENNT';
-        statusIcon = Icons.bluetooth_disabled;
+        statusLabel = 'Getrennt';
         break;
     }
 
     final String deviceName = _selectedDevice?.name ?? 'Kein Gerät gewählt';
+    final bool connected = _connectionStatus == ConnectionStatus.connected;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF161F30),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF223049)),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+      decoration: _cardDecoration(),
       child: Row(
         children: [
-          Icon(statusIcon, color: statusColor, size: 20),
-          const SizedBox(width: 10),
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: statusColor,
+              boxShadow: [
+                BoxShadow(
+                  color: statusColor.withValues(alpha: 0.6),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -789,58 +815,32 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Text(
                   deviceName,
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
                     color: Colors.white,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  _statusMessage,
+                  '$statusLabel · $_statusMessage',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: Colors.white.withValues(alpha: 0.55),
                   ),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: statusColor.withValues(alpha: 0.4)),
+          IconButton(
+            icon: Icon(
+              connected ? Icons.link_off_rounded : Icons.link_rounded,
+              color: connected ? Colors.white70 : const Color(0xFF10B981),
             ),
-            child: Text(
-              statusLabel,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: statusColor,
-                letterSpacing: 0.5,
-              ),
-            ),
+            tooltip: connected ? 'Trennen' : 'Verbinden',
+            onPressed: connected ? _userDisconnect : () => _connectToDevice(),
           ),
-          const SizedBox(width: 8),
-          if (_connectionStatus == ConnectionStatus.connected)
-            IconButton(
-              icon: const Icon(Icons.link_off, color: Colors.white70, size: 20),
-              tooltip: 'Trennen',
-              onPressed: _userDisconnect,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.link, color: Color(0xFF10B981), size: 20),
-              tooltip: 'Verbinden',
-              onPressed: () => _connectToDevice(),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
         ],
       ),
     );
@@ -850,215 +850,105 @@ class _DashboardScreenState extends State<DashboardScreen>
     final bool isOutage = _powerStatus == PowerStatus.outage;
     final bool isOnline = _powerStatus == PowerStatus.online;
 
+    final Color accent = isOutage
+        ? const Color(0xFFEF4444)
+        : isOnline
+            ? const Color(0xFF10B981)
+            : const Color(0xFF64748B);
+    final String title = isOutage
+        ? 'Stromausfall'
+        : isOnline
+            ? 'Netzstrom normal'
+            : 'Keine Daten';
+    final String subtitle = isOutage
+        ? '230 V ausgefallen – das Gerät läuft auf Akku.'
+        : isOnline
+            ? 'Die Netzversorgung ist aktiv und stabil.'
+            : 'Verbinde dich mit dem Netzwächter, um Live-Daten zu sehen.';
+    final IconData icon = isOutage
+        ? Icons.power_off_rounded
+        : isOnline
+            ? Icons.bolt_rounded
+            : Icons.sensors_off_rounded;
+
     return AnimatedBuilder(
       animation: _pulseAnimation,
       builder: (context, child) {
-        final double pulseVal = isOutage ? _pulseAnimation.value : 0.0;
-
-        Color borderColor;
-        Color backgroundColor;
-        List<BoxShadow> shadows;
-
-        if (isOutage) {
-          borderColor = Color.lerp(
-            const Color(0xFFB91C1C),
-            const Color(0xFFEF4444),
-            pulseVal,
-          )!;
-          backgroundColor = Color.lerp(
-            const Color(0xFF450A0A),
-            const Color(0xFF7F1D1D),
-            pulseVal * 0.4,
-          )!;
-          shadows = [
-            BoxShadow(
-              color: const Color(0xFFEF4444).withValues(alpha: 0.35 * pulseVal),
-              blurRadius: 20 * pulseVal,
-              spreadRadius: 2 * pulseVal,
-            ),
-          ];
-        } else if (isOnline) {
-          borderColor = const Color(0xFF10B981);
-          backgroundColor = const Color(0xFF064E3B).withValues(alpha: 0.35);
-          shadows = [
-            BoxShadow(
-              color: const Color(0xFF10B981).withValues(alpha: 0.15),
-              blurRadius: 12,
-              spreadRadius: 1,
-            ),
-          ];
-        } else {
-          borderColor = const Color(0xFF334155);
-          backgroundColor = const Color(0xFF161F30);
-          shadows = [];
-        }
+        final double pulse = isOutage ? _pulseAnimation.value : 0.0;
 
         return Container(
-          padding: const EdgeInsets.all(22),
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 22),
           decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: borderColor, width: isOutage ? 2.5 : 1.5),
-            boxShadow: shadows,
+            borderRadius: BorderRadius.circular(28),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                accent.withValues(alpha: isOutage ? 0.25 + 0.2 * pulse : 0.22),
+                const Color(0xFF131A2A),
+              ],
+            ),
+            border: Border.all(
+              color: accent.withValues(alpha: isOutage ? 0.5 + 0.5 * pulse : 0.45),
+              width: isOutage ? 2 : 1.2,
+            ),
+            boxShadow: [
+              if (isOutage || isOnline)
+                BoxShadow(
+                  color: accent.withValues(alpha: isOutage ? 0.35 * pulse : 0.12),
+                  blurRadius: isOutage ? 28 * pulse : 20,
+                  spreadRadius: isOutage ? 2 * pulse : 0,
+                ),
+            ],
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isOutage
-                              ? const Color(0xFFEF4444).withValues(alpha: 0.2)
-                              : isOnline
-                                  ? const Color(0xFF10B981).withValues(alpha: 0.2)
-                                  : Colors.white10,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          isOutage
-                              ? Icons.warning_amber_rounded
-                              : isOnline
-                                  ? Icons.bolt_rounded
-                                  : Icons.help_outline_rounded,
-                          size: 32,
-                          color: isOutage
-                              ? const Color(0xFFEF4444)
-                              : isOnline
-                                  ? const Color(0xFF10B981)
-                                  : Colors.white54,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'NETZVERSORGUNG',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.2,
-                              color: Colors.white.withValues(alpha: 0.6),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            isOutage
-                                ? 'STROMAUSFALL AKTIV'
-                                : isOnline
-                                    ? 'NETZSTROM NORMAL'
-                                    : 'STATUS UNBEKANNT',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                              color: isOutage
-                                  ? const Color(0xFFFCA5A5)
-                                  : isOnline
-                                      ? const Color(0xFF6EE7B7)
-                                      : Colors.white70,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: isOutage
-                          ? const Color(0xFFEF4444).withValues(alpha: 0.25)
-                          : isOnline
-                              ? const Color(0xFF10B981).withValues(alpha: 0.25)
-                              : Colors.white10,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isOutage
-                            ? const Color(0xFFEF4444)
-                            : isOnline
-                                ? const Color(0xFF10B981)
-                                : Colors.white24,
-                      ),
-                    ),
-                    child: Text(
-                      isOutage
-                          ? 'ALARM'
-                          : isOnline
-                              ? 'ONLINE'
-                              : 'KEINE DATEN',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: isOutage
-                            ? const Color(0xFFEF4444)
-                            : isOnline
-                                ? const Color(0xFF10B981)
-                                : Colors.white60,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.all(12),
+                width: 92,
+                height: 92,
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(12),
+                  shape: BoxShape.circle,
+                  color: accent.withValues(alpha: 0.18),
+                  border: Border.all(color: accent.withValues(alpha: 0.6), width: 2),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isOutage ? Icons.crisis_alert : Icons.info_outline,
-                      size: 16,
-                      color: isOutage ? const Color(0xFFEF4444) : Colors.white54,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        isOutage
-                            ? 'Achtung: 230V Primärstrom ausgefallen! ESP32 läuft auf Akku.'
-                            : isOnline
-                                ? 'Primäre 230V-Netzteilversorgung aktiv und stabil.'
-                                : 'Verbinde mit LilyGO-Netzwächter, um Live-Daten zu empfangen.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isOutage
-                              ? const Color(0xFFFCA5A5)
-                              : Colors.white.withValues(alpha: 0.8),
-                        ),
-                      ),
-                    ),
-                  ],
+                child: Icon(icon, size: 46, color: accent),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: isOutage ? const Color(0xFFFCA5A5) : Colors.white,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.35,
+                  color: Colors.white.withValues(alpha: 0.7),
                 ),
               ),
               if (_lastUpdate != null) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    'Letztes Signal: ${DateFormat('HH:mm:ss').format(_lastUpdate!)} Uhr',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.4),
-                    ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                ),
-              ],
-              if (_lastRawLine.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'Empfangen: $_lastRawLine',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.white.withValues(alpha: 0.4),
+                  child: Text(
+                    'Letztes Signal ${DateFormat('HH:mm:ss').format(_lastUpdate!)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.6),
+                    ),
                   ),
                 ),
               ],
@@ -1070,88 +960,49 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildBatteryTile() {
-    Color battColor;
-    IconData battIcon;
-
-    if (_batteryPercent > 60) {
-      battColor = const Color(0xFF10B981);
-      battIcon = Icons.battery_full_rounded;
-    } else if (_batteryPercent > 25) {
-      battColor = const Color(0xFFF59E0B);
-      battIcon = Icons.battery_5_bar_rounded;
-    } else {
-      battColor = const Color(0xFFEF4444);
-      battIcon = Icons.battery_alert_rounded;
-    }
-
+    final Color battColor = _batteryPercent > 60
+        ? const Color(0xFF10B981)
+        : _batteryPercent > 25
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFFEF4444);
     final double progress = (_batteryPercent / 100.0).clamp(0.0, 1.0);
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF161F30),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF223049)),
-      ),
+      padding: const EdgeInsets.all(18),
+      decoration: _cardDecoration(),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'AKKU',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.1,
-                  color: Colors.white.withValues(alpha: 0.6),
+          _cardLabel('AKKU', Icons.battery_full_rounded, battColor),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: 104,
+            height: 104,
+            child: CustomPaint(
+              painter: _RingPainter(progress: progress, color: battColor),
+              child: Center(
+                child: Text(
+                  '$_batteryPercent%',
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ),
-              Icon(battIcon, color: battColor, size: 22),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Text(
-            '$_batteryPercent %',
+            '${_batteryVoltage.toStringAsFixed(2)} V',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _batteryVoltage > 3.7 ? 'Gut geladen' : 'Entladen',
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              color: battColor,
+              fontSize: 12,
+              color: Colors.white.withValues(alpha: 0.5),
             ),
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: const Color(0xFF0F172A),
-              valueColor: AlwaysStoppedAnimation<Color>(battColor),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              const Icon(Icons.speed, size: 14, color: Colors.white54),
-              const SizedBox(width: 4),
-              Text(
-                '${_batteryVoltage.toStringAsFixed(2)} V',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                _batteryVoltage > 3.7 ? 'Geladen' : 'Entladen',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.white.withValues(alpha: 0.5),
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -1159,79 +1010,85 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildPowerSupplyTile() {
-    final bool psuActive = _psuVoltage > 4.5;
+    final bool psuActive = _psuVoltage > 3.0;
     final Color psuColor = psuActive ? const Color(0xFF38BDF8) : const Color(0xFFEF4444);
+    final double progress = (_psuVoltage / 5.5).clamp(0.0, 1.0);
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF161F30),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF223049)),
-      ),
+      padding: const EdgeInsets.all(18),
+      decoration: _cardDecoration(),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'NETZTEIL (JST 5V)',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.1,
-                  color: Colors.white.withValues(alpha: 0.6),
+          _cardLabel(
+            'NETZTEIL',
+            psuActive ? Icons.power_rounded : Icons.power_off_rounded,
+            psuColor,
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: 104,
+            height: 104,
+            child: CustomPaint(
+              painter: _RingPainter(progress: progress, color: psuColor),
+              child: Center(
+                child: Text(
+                  _psuVoltage.toStringAsFixed(1),
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ),
-              Icon(
-                psuActive ? Icons.power_rounded : Icons.power_off_rounded,
-                color: psuColor,
-                size: 22,
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Text(
             '${_psuVoltage.toStringAsFixed(2)} V',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            psuActive ? 'Spannung stabil' : 'Keine Spannung',
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              color: psuColor,
+              fontSize: 12,
+              color: Colors.white.withValues(alpha: 0.5),
             ),
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: (_psuVoltage / 5.5).clamp(0.0, 1.0),
-              minHeight: 8,
-              backgroundColor: const Color(0xFF0F172A),
-              valueColor: AlwaysStoppedAnimation<Color>(psuColor),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: psuColor,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                psuActive ? 'Spannung stabil' : 'Keine Eingangsspannung',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
-              ),
-            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDiagnosticsTile() {
+    return Container(
+      decoration: _cardDecoration(),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 18),
+          childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+          leading: const Icon(Icons.terminal_rounded, size: 20, color: Colors.white54),
+          title: const Text(
+            'Diagnose',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SelectableText(
+                _lastRawLine.isEmpty
+                    ? 'Noch keine Daten empfangen.'
+                    : _lastRawLine,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  color: Colors.white.withValues(alpha: 0.65),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1287,9 +1144,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF161F30),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF223049)),
+              color: const Color(0xFF131A2A),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFF1F2A40)),
             ),
             child: Center(
               child: Text(
@@ -1309,9 +1166,9 @@ class _DashboardScreenState extends State<DashboardScreen>
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF161F30),
+                  color: const Color(0xFF131A2A),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF223049)),
+                  border: Border.all(color: const Color(0xFF1F2A40)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1372,7 +1229,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _showDevicePickerModal() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF161F30),
+      backgroundColor: const Color(0xFF131A2A),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1404,7 +1261,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                     ],
                   ),
-                  const Divider(color: Color(0xFF223049)),
+                  const Divider(color: Color(0xFF1F2A40)),
                   if (_bondedDevices.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 24),
@@ -1479,4 +1336,35 @@ class _DashboardScreenState extends State<DashboardScreen>
       },
     );
   }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter({required this.progress, required this.color});
+
+  final double progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const double stroke = 10;
+    final Rect rect = Offset.zero & size;
+    final Rect arcRect = rect.deflate(stroke / 2);
+
+    final Paint track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..color = Colors.white.withValues(alpha: 0.08);
+    canvas.drawArc(arcRect, 0, 6.2831853, false, track);
+
+    final Paint arc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+    canvas.drawArc(arcRect, -1.5707963, 6.2831853 * progress, false, arc);
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) =>
+      old.progress != progress || old.color != color;
 }
