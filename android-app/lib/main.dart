@@ -7,9 +7,10 @@ import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Bump on every change; the build number is injected by CI (--dart-define).
-const String kAppVersion = '1.2.2';
+const String kAppVersion = '1.3.0';
 const String kBuildNumber = String.fromEnvironment('BUILD_NUMBER', defaultValue: 'dev');
 
 void main() async {
@@ -147,6 +148,14 @@ class _DashboardScreenState extends State<DashboardScreen>
   Timer? _simulationTimer;
   bool _isSimulationActive = false;
 
+  // Remembered device + automatic reconnect
+  static const String _prefsDeviceKey = 'last_device_address';
+  static const Duration _reconnectDelay = Duration(seconds: 5);
+  String? _savedAddress;
+  Timer? _reconnectTimer;
+  bool _userDisconnected = false;
+  int _reconnectAttempts = 0;
+
   @override
   void initState() {
     super.initState();
@@ -170,7 +179,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     _initNotifications();
     _requestAppPermissions();
-    _loadPairedDevices();
+    _initDeviceAndAutoConnect();
 
     _addLog(
       title: 'App gestartet',
@@ -186,6 +195,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     _streamSubscription?.cancel();
     _connection?.dispose();
     _simulationTimer?.cancel();
+    _reconnectTimer?.cancel();
     super.dispose();
   }
 
@@ -286,14 +296,69 @@ class _DashboardScreenState extends State<DashboardScreen>
   // Bluetooth Connection & Data Processing
   // ---------------------------------------------------------------------------
 
+  Future<void> _initDeviceAndAutoConnect() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _savedAddress = prefs.getString(_prefsDeviceKey);
+    } catch (e) {
+      debugPrint('Fehler beim Lesen des gespeicherten Geräts: $e');
+    }
+    await _loadPairedDevices();
+    if (!mounted || _selectedDevice == null || _isSimulationActive) return;
+    // Wait for the Bluetooth permission prompt before the first connect attempt.
+    await Future<void>.delayed(const Duration(seconds: 1));
+    if (mounted && _connectionStatus == ConnectionStatus.disconnected) {
+      _connectToDevice(_selectedDevice);
+    }
+  }
+
+  Future<void> _rememberDevice(String address) async {
+    _savedAddress = address;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefsDeviceKey, address);
+    } catch (e) {
+      debugPrint('Fehler beim Speichern des Geräts: $e');
+    }
+  }
+
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    if (!mounted || _userDisconnected || _isSimulationActive || _selectedDevice == null) {
+      return;
+    }
+    _reconnectTimer = Timer(_reconnectDelay, () {
+      if (mounted &&
+          !_userDisconnected &&
+          !_isSimulationActive &&
+          _connectionStatus == ConnectionStatus.disconnected) {
+        _connectToDevice(_selectedDevice, true);
+      }
+    });
+  }
+
+  Future<void> _userDisconnect() async {
+    _userDisconnected = true;
+    _reconnectTimer?.cancel();
+    await _disconnect();
+    _handleDisconnect('Manuell getrennt');
+  }
+
   Future<void> _loadPairedDevices() async {
     try {
       final List<BluetoothDevice> devices =
           await FlutterBluetoothSerial.instance.getBondedDevices();
       setState(() {
         _bondedDevices = devices;
-        // Auto-select "LilyGO-Netzwaechter" if present
+        // Prefer the remembered device, then "LilyGO-Netzwaechter"
         for (final device in devices) {
+          if (_savedAddress != null && device.address == _savedAddress) {
+            _selectedDevice = device;
+            break;
+          }
+        }
+        for (final device in devices) {
+          if (_selectedDevice != null) break;
           final name = device.name ?? '';
           if (name.contains('LilyGO') || name.contains('Netzwaechter')) {
             _selectedDevice = device;
@@ -309,8 +374,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  Future<void> _connectToDevice([BluetoothDevice? deviceToConnect]) async {
+  Future<void> _connectToDevice([BluetoothDevice? deviceToConnect, bool auto = false]) async {
     final targetDevice = deviceToConnect ?? _selectedDevice;
+    if (!auto) {
+      _userDisconnected = false;
+      _reconnectAttempts = 0;
+    }
+    _reconnectTimer?.cancel();
     if (targetDevice == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -335,6 +405,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         _connectionStatus = ConnectionStatus.connected;
         _statusMessage = 'Verbunden mit ${targetDevice.name ?? targetDevice.address}';
       });
+      _reconnectAttempts = 0;
+      _rememberDevice(targetDevice.address);
 
       _addLog(
         title: 'Bluetooth verbunden',
@@ -388,12 +460,19 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
     _pulseController.stop();
 
-    _addLog(
-      title: 'Verbindung getrennt',
-      details: msg,
-      icon: Icons.bluetooth_disabled,
-      color: Colors.grey,
-    );
+    // Only log the first failure of a reconnect series, not every retry.
+    if (_reconnectAttempts == 0) {
+      _addLog(
+        title: 'Verbindung getrennt',
+        details: msg,
+        icon: Icons.bluetooth_disabled,
+        color: Colors.grey,
+      );
+    }
+    if (!_userDisconnected) {
+      _reconnectAttempts++;
+      _scheduleReconnect();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -750,7 +829,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             IconButton(
               icon: const Icon(Icons.link_off, color: Colors.white70, size: 20),
               tooltip: 'Trennen',
-              onPressed: _disconnect,
+              onPressed: _userDisconnect,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             )
