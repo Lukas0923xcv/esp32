@@ -23,9 +23,27 @@ android {
         multiDexEnabled = true
     }
 
+    // Fixed signing key (written by CI from a secret) so every build can be
+    // installed over the previous one. Falls back to the debug key without it.
+    val releaseKeystore = file("netzwaechter.jks")
+    signingConfigs {
+        if (releaseKeystore.exists()) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = "netzwaechter"
+                keyPassword = System.getenv("KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (releaseKeystore.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = false
             isShrinkResources = false
         }

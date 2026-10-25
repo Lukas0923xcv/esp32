@@ -31,7 +31,19 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Restore signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android-app/android/app/netzwaechter.jks
+          else
+            echo "No KEYSTORE_BASE64 secret set, using debug signing"
+          fi
+
       - name: Build Android Release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           cd android-app
           flutter pub get
@@ -45,7 +57,7 @@ jobs:
             sed -i 's/compileSdkVersion 30/compileSdkVersion 34/' "$PLUGIN_DIR/android/build.gradle"
           fi
 
-          flutter build apk --release --dart-define=BUILD_NUMBER=${{ github.run_number }} --android-skip-build-dependency-validation
+          flutter build apk --release --build-number=${{ github.run_number }} --dart-define=BUILD_NUMBER=${{ github.run_number }} --android-skip-build-dependency-validation
 
           cd ..
           mkdir -p android-app/build/app/outputs/flutter-apk
