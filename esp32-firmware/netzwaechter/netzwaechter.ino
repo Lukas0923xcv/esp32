@@ -18,7 +18,7 @@ const float REF_VOLT      = 3.3;
 // Netzerkennung mit Hysterese + Entprellung (verhindert zufaelliges Umschalten)
 const float          MAINS_OFF_VOLT = 2.5;   // darunter gilt Netz als weg
 const float          MAINS_ON_VOLT  = 3.0;   // darueber gilt Netz als da
-const unsigned long  MAINS_OFF_MS   = 2000;  // so lange muss Spannung niedrig bleiben
+const unsigned long  MAINS_OFF_MS   = 400;   // so lange muss Spannung niedrig bleiben
 const unsigned long  MAINS_ON_MS    = 1000;  // so lange muss Spannung hoch bleiben
 
 // Glaettung (exponentieller Mittelwert), kleiner = ruhiger
@@ -103,6 +103,7 @@ void loop() {
     } else if (millis() - changeSince >= (mainsOnline ? MAINS_OFF_MS : MAINS_ON_MS)) {
       mainsOnline = !mainsOnline;
       pendingChange = false;
+      lastSend = 0;  // Statuszeile sofort senden, nicht erst im naechsten 1,5-s-Takt
       if (!mainsOnline) {
         sendOutput("\n🚨 [ALARM] 230V-NETZ AUSGEFALLEN! Notbetrieb ueber 18650-Akku!\n");
       } else {
