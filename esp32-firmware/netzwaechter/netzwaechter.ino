@@ -108,6 +108,14 @@ void logUsb(const String& msg) {
 }
 
 // ================== Konfiguration ==================
+// 079... -> +4179..., 0041... -> +41... (das Modem braucht das internationale Format)
+String normalizeNumber(String n) {
+  n.trim();
+  if (n.startsWith("00")) return "+" + n.substring(2);
+  if (n.startsWith("0"))  return "+41" + n.substring(1);
+  return n;
+}
+
 String sanitizeNumbers(const String& in) {
   String out;
   int count = 0;
@@ -117,7 +125,7 @@ String sanitizeNumbers(const String& in) {
     if (c == ',' || c == ';') {
       if (cur.length() >= 3 && count < MAX_NUMBERS) {
         if (out.length()) out += ',';
-        out += cur;
+        out += normalizeNumber(cur);
         count++;
       }
       cur = "";
@@ -167,7 +175,7 @@ int getNumbers(String* out) {
     if (c < 0) c = all.length();
     String num = all.substring(start, c);
     num.trim();
-    if (num.length()) out[n++] = num;
+    if (num.length()) out[n++] = normalizeNumber(num);
     start = c + 1;
   }
   return n;
@@ -436,10 +444,23 @@ bool initModem() {
   return true;
 }
 
+String compactResp(String r) {
+  r.replace("\r", " ");
+  r.replace("\n", " ");
+  r.replace(">", "");
+  r.trim();
+  return r.substring(0, 80);
+}
+
 bool sendSMS(const String& number, const String& text) {
-  if (!registered) return false;
+  if (!registered) {
+    sendOutput("[SMS] !! Nicht im Mobilnetz eingebucht (Status " + String((int)lastCereg) +
+               ", Signal " + String((int)signalCsq) + ").\n");
+    return false;
+  }
 
   sendAT("AT+CMGF=1");
+  sendAT("AT+CSCS=\"GSM\"");
   while (Modem.available()) Modem.read();
   Modem.print(String("AT+CMGS=\"") + number + "\"\r");
 
@@ -452,6 +473,8 @@ bool sendSMS(const String& number, const String& text) {
   }
   if (r.indexOf('>') < 0) {
     logUsb("[SMS] Kein '>' Prompt: " + r + "\n");
+    sendOutput("[SMS] !! Modem nimmt SMS an " + number + " nicht an: " + compactResp(r) + "\n");
+    Modem.write(0x1B);  // eventuell offene Eingabe abbrechen
     return false;
   }
 
@@ -468,7 +491,12 @@ bool sendSMS(const String& number, const String& text) {
     vTaskDelay(pdMS_TO_TICKS(20));
   }
   logUsb("[SMS] Antwort: " + r + "\n");
-  return r.indexOf("+CMGS") >= 0;
+  if (r.indexOf("+CMGS") < 0) {
+    sendOutput("[SMS] !! Modem-Antwort fuer " + number + ": " +
+               (r.length() ? compactResp(r) : String("keine (Timeout)")) + "\n");
+    return false;
+  }
+  return true;
 }
 
 // Bitmaske aller aktuell eingestellten Empfaenger
