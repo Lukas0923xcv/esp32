@@ -73,7 +73,6 @@ void sendOutput(const String& msg) {          // USB + Bluetooth (App)
   Serial.print(msg);
   if (SerialBT.hasClient()) {
     SerialBT.print(msg);
-    SerialBT.flush();
   }
   xSemaphoreGive(outMutex);
 }
@@ -284,7 +283,10 @@ void modemTask(void*) {
   Modem.begin(115200, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN);
 
   while (!measurementReady) vTaskDelay(pdMS_TO_TICKS(100));
-  bool notifiedState = mainsOnline;   // Zustand, ueber den zuletzt per SMS informiert wurde
+  // Annahme: vor dem Start war Strom da. Startet das Board waehrend eines
+  // Ausfalls neu (z.B. Spannungseinbruch beim Umschalten auf Akku), geht
+  // trotzdem die Alarm-SMS raus.
+  bool notifiedState = true;
   unsigned long lastFailAt = 0;
   bool hadFailure = false;
   unsigned long lastCheck = 0;
@@ -364,6 +366,20 @@ String smsStatusText() {
   }
 }
 
+String resetReasonText() {
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON:  return "Strom eingeschaltet";
+    case ESP_RST_SW:       return "Software / Upload";
+    case ESP_RST_PANIC:    return "Absturz (Panic)";
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT:      return "Watchdog";
+    case ESP_RST_BROWNOUT: return "Spannungseinbruch (Brownout)";
+    case ESP_RST_EXT:      return "Reset-Taste";
+    default:               return "anderer (" + String((int)esp_reset_reason()) + ")";
+  }
+}
+
 // ================== Main ==================
 unsigned long lastSend = 0;
 unsigned long changeSince = 0;
@@ -390,6 +406,7 @@ void setup() {
   analogSetAttenuation(ADC_11db);
 
   sendOutput("\n=== NETZWAECHTER MIT SMS-ALARM GESTARTET ===\n");
+  sendOutput("[BOOT] Neustart-Grund: " + resetReasonText() + "\n");
 
   // Modem-Task auf Core 0, Arduino-Loop laeuft auf Core 1
   xTaskCreatePinnedToCore(modemTask, "modem", 8192, nullptr, 1, nullptr, 0);
