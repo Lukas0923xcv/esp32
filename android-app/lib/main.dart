@@ -9,8 +9,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'sms_settings_screen.dart';
+
 // Bump on every change; the build number is injected by CI (--dart-define).
-const String kAppVersion = '1.4.1';
+const String kAppVersion = '1.5.0';
 const String kBuildNumber = String.fromEnvironment('BUILD_NUMBER', defaultValue: 'dev');
 
 void main() async {
@@ -109,6 +111,16 @@ class _DashboardScreenState extends State<DashboardScreen>
     caseSensitive: false,
   );
 
+  // Optional tail of the same line: "... | Modem: OK (23) | SMS: WARTE 120s"
+  final RegExp _modemRegex = RegExp(
+    r'\|\s*Modem:\s*(.*?)\s*\|\s*SMS:\s*(.*)$',
+    caseSensitive: false,
+  );
+
+  // Every received line, for the SMS settings screen (CFG:/OK:/ERR: replies)
+  final StreamController<String> _lineController =
+      StreamController<String>.broadcast();
+
   // Notifications
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -129,6 +141,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   double _batteryVoltage = 0.0;
   DateTime? _lastUpdate;
   String _lastRawLine = '';
+  String? _modemStatus;
+  String? _smsStatus;
 
   // Outage debounce: a single (or short burst of) low PSU readings is ignored
   // so brief voltage dips don't trigger a false Stromausfall alarm.
@@ -196,6 +210,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     _connection?.dispose();
     _simulationTimer?.cancel();
     _reconnectTimer?.cancel();
+    _lineController.close();
     super.dispose();
   }
 
@@ -449,6 +464,36 @@ class _DashboardScreenState extends State<DashboardScreen>
     _connection = null;
   }
 
+  Future<void> _sendCommand(String command) async {
+    final connection = _connection;
+    if (connection == null || !connection.isConnected) {
+      throw StateError('Nicht mit dem Netzwächter verbunden');
+    }
+    connection.output.add(Uint8List.fromList(utf8.encode('$command\n')));
+    await connection.output.allSent;
+  }
+
+  void _openSmsSettings() {
+    if (_isSimulationActive || _connection == null ||
+        _connectionStatus != ConnectionStatus.connected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Zum Einstellen zuerst mit dem Netzwächter verbinden.'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SmsSettingsScreen(
+          sendCommand: _sendCommand,
+          lines: _lineController.stream,
+        ),
+      ),
+    );
+  }
+
   void _handleDisconnect([String? reason]) {
     final msg = reason ?? 'Verbindung getrennt';
     _outageSince = null;
@@ -457,6 +502,8 @@ class _DashboardScreenState extends State<DashboardScreen>
       _connectionStatus = ConnectionStatus.disconnected;
       _statusMessage = msg;
       _powerStatus = PowerStatus.unknown;
+      _modemStatus = null;
+      _smsStatus = null;
     });
     _pulseController.stop();
 
@@ -480,9 +527,26 @@ class _DashboardScreenState extends State<DashboardScreen>
   // ---------------------------------------------------------------------------
 
   void _parseSerialLine(String line, {bool debounce = true}) {
+    if (!_lineController.isClosed) _lineController.add(line);
+    if (line.startsWith('CFG:') || line.startsWith('OK:') || line.startsWith('ERR:')) {
+      return;
+    }
+    if (line.startsWith('[SMS]')) {
+      _logSmsLine(line);
+      return;
+    }
+
     setState(() => _lastRawLine = line);
     final match = _serialRegex.firstMatch(line);
     if (match == null) return;
+
+    final modemMatch = _modemRegex.firstMatch(line);
+    if (modemMatch != null) {
+      setState(() {
+        _modemStatus = modemMatch.group(1)?.trim();
+        _smsStatus = modemMatch.group(2)?.trim();
+      });
+    }
 
     final String statusStr = match.group(1)?.trim().toUpperCase() ?? '';
     final double psuVolt = double.tryParse(match.group(2) ?? '') ?? 0.0;
@@ -576,6 +640,30 @@ class _DashboardScreenState extends State<DashboardScreen>
         );
       }
     }
+  }
+
+  void _logSmsLine(String line) {
+    final String text = line.substring(5).trim();
+    final bool failed = text.startsWith('!!');
+    final bool sent = text.toLowerCase().contains('gesendet');
+    _addLog(
+      title: failed
+          ? 'SMS-FEHLER'
+          : sent
+              ? 'SMS GESENDET'
+              : 'SMS',
+      details: failed ? text.substring(2).trim() : text,
+      icon: failed
+          ? Icons.sms_failed_outlined
+          : sent
+              ? Icons.mark_chat_read_outlined
+              : Icons.sms_outlined,
+      color: failed
+          ? const Color(0xFFEF4444)
+          : sent
+              ? const Color(0xFF10B981)
+              : const Color(0xFF38BDF8),
+    );
   }
 
   void _addLog({
@@ -694,6 +782,11 @@ class _DashboardScreenState extends State<DashboardScreen>
             onPressed: _toggleSimulation,
           ),
           IconButton(
+            tooltip: 'SMS-Alarm einstellen',
+            icon: const Icon(Icons.sms_outlined, color: Colors.white70),
+            onPressed: _openSmsSettings,
+          ),
+          IconButton(
             tooltip: 'Bluetooth-Geräte verwalten',
             icon: const Icon(Icons.bluetooth_rounded, color: Colors.white70),
             onPressed: _showDevicePickerModal,
@@ -725,6 +818,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                _buildSmsTile(),
                 const SizedBox(height: 16),
                 _buildDiagnosticsTile(),
                 const SizedBox(height: 24),
@@ -1058,6 +1153,63 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSmsTile() {
+    final String modem = _modemStatus ?? '–';
+    final String sms = _smsStatus ?? '–';
+    final bool modemOk = modem.startsWith('OK');
+    final bool smsWaiting = sms.startsWith('WARTE');
+    final bool smsFailed = sms.startsWith('FEHLER');
+    final Color smsColor = smsFailed
+        ? const Color(0xFFEF4444)
+        : smsWaiting
+            ? const Color(0xFFF59E0B)
+            : sms == 'GESENDET'
+                ? const Color(0xFF10B981)
+                : Colors.white70;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: _openSmsSettings,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(18, 14, 10, 14),
+        decoration: _cardDecoration(),
+        child: Row(
+          children: [
+            Icon(
+              Icons.cell_tower_rounded,
+              size: 22,
+              color: modemOk ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _cardLabel('SMS-ALARM', Icons.sms_outlined, Colors.white54),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Modem: $modem',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    smsWaiting
+                        ? 'SMS: wartet noch ${sms.substring(5).trim()} (kurze Aussetzer werden ignoriert)'
+                        : 'SMS: $sms',
+                    style: TextStyle(fontSize: 13, color: smsColor),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white38),
+          ],
+        ),
       ),
     );
   }
