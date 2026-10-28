@@ -12,7 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'sms_settings_screen.dart';
 
 // Bump on every change; the build number is injected by CI (--dart-define).
-const String kAppVersion = '1.5.0';
+const String kAppVersion = '1.6.0';
 const String kBuildNumber = String.fromEnvironment('BUILD_NUMBER', defaultValue: 'dev');
 
 void main() async {
@@ -1162,10 +1162,11 @@ class _DashboardScreenState extends State<DashboardScreen>
     final String sms = _smsStatus ?? '–';
     final bool modemOk = modem.startsWith('OK');
     final bool smsWaiting = sms.startsWith('WARTE');
+    final bool smsPaused = sms.startsWith('PAUSE');
     final bool smsFailed = sms.startsWith('FEHLER');
     final Color smsColor = smsFailed
         ? const Color(0xFFEF4444)
-        : smsWaiting
+        : smsWaiting || smsPaused
             ? const Color(0xFFF59E0B)
             : sms == 'GESENDET'
                 ? const Color(0xFF10B981)
@@ -1200,7 +1201,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Text(
                     smsWaiting
                         ? 'SMS: wartet noch ${sms.substring(5).trim()} (kurze Aussetzer werden ignoriert)'
-                        : 'SMS: $sms',
+                        : smsPaused
+                            ? 'SMS: pausiert, noch ${sms.substring(5).trim()}'
+                            : 'SMS: $sms',
                     style: TextStyle(fontSize: 13, color: smsColor),
                     overflow: TextOverflow.ellipsis,
                   ),
