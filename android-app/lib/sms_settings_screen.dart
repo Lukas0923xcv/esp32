@@ -41,6 +41,7 @@ class _SmsSettingsScreenState extends State<SmsSettingsScreen> {
   int _offDelay = 180;
   int _onDelay = 10;
   bool _restoreSms = true;
+  bool _smsCommands = true;
   int _lowBat = 0;
 
   bool _loading = true;
@@ -108,6 +109,7 @@ class _SmsSettingsScreenState extends State<SmsSettingsScreen> {
         _offDelay = int.tryParse(cfg['OFFDELAY'] ?? '') ?? 180;
         _onDelay = int.tryParse(cfg['ONDELAY'] ?? '') ?? 10;
         _restoreSms = cfg['RESTORE'] != '0';
+        _smsCommands = cfg['SMSCMD'] != '0';
         _lowBat = int.tryParse(cfg['LOWBAT'] ?? '') ?? 0;
         _loading = false;
       });
@@ -173,6 +175,7 @@ class _SmsSettingsScreenState extends State<SmsSettingsScreen> {
       'OFFDELAY': '$_offDelay',
       'ONDELAY': '$_onDelay',
       'RESTORE': _restoreSms ? '1' : '0',
+      'SMSCMD': _smsCommands ? '1' : '0',
       'LOWBAT': '$_lowBat',
     };
 
@@ -422,6 +425,39 @@ class _SmsSettingsScreenState extends State<SmsSettingsScreen> {
               const SizedBox(height: 14),
               _messageField(_msgLow, 'Warn-Text', '2 h 5 min'),
             ],
+          ],
+        ),
+        _section(
+          icon: Icons.settings_remote_rounded,
+          iconColor: const Color(0xFF38BDF8),
+          title: 'Fernsteuerung per SMS',
+          subtitle: 'SMS, die mit "/" beginnen, sind Befehle. Angenommen werden sie nur von den '
+              'Empfänger-Nummern oben. Der Netzwächter antwortet per SMS.',
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _smsCommands,
+              onChanged: (v) => setState(() => _smsCommands = v),
+              title: const Text('SMS-Befehle erlauben'),
+            ),
+            if (_smsCommands)
+              Text(
+                '/status  →  aktueller Zustand\n'
+                '/einstellungen  →  alle Einstellungen\n'
+                '/alarm 5m  →  Alarm nach 5 Minuten\n'
+                '/entwarnung an · aus · 30s\n'
+                '/akku 20 · aus  →  Akku-Warnung\n'
+                '/text alarm <Text>  →  SMS-Text ändern\n'
+                '/nummer liste · neu <Nr> · weg <Nr>\n'
+                '/pause 2h · aus  →  Alarme stummschalten\n'
+                '/test  ·  /neustart  ·  /hilfe',
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.5,
+                  fontFamily: 'monospace',
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
+              ),
           ],
         ),
         _section(
