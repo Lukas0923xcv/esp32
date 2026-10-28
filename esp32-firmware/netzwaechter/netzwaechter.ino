@@ -67,6 +67,14 @@ volatile int        signalCsq  = 99;
 volatile int        lastCereg  = -1;
 volatile SmsState   smsState   = SMS_NONE;
 
+// Ueberlebt einen Neustart (nicht aber Strom komplett weg): so weiss die
+// Firmware nach einem Reset beim Umschalten, ob der Alarm schon raus ist.
+#define RTC_MAGIC 0x4E57A001
+RTC_NOINIT_ATTR uint32_t rtcMagic;
+RTC_NOINIT_ATTR uint32_t rtcNotifiedOnline;   // 1 = zuletzt "Strom da" gemeldet
+RTC_NOINIT_ATTR uint32_t rtcBootCount;
+String bootReason;
+
 // ================== Ausgabe ==================
 void sendOutput(const String& msg) {          // USB + Bluetooth (App)
   xSemaphoreTake(outMutex, portMAX_DELAY);
@@ -202,9 +210,27 @@ bool waitForSim() {
   return false;
 }
 
-bool initModem() {
+// Nach einem ESP32-Reset laeuft das Modem oft noch und ist eingebucht.
+// Dann sofort weiterverwenden statt 15 s Power-Cycle + neu einbuchen.
+bool reuseRunningModem() {
+  if (!modemAnswers(3)) return false;
+  sendAT("ATE0");
+  if (sendAT("AT+CPIN?").indexOf("READY") < 0) return false;
+  if (!isRegistered()) return false;
+  sendAT("AT+CMEE=2");
+  sendAT("AT+CMGF=1");
+  sendAT("AT+CSCS=\"GSM\"");
+  updateSignal();
+  registered = true;
+  modemState = MS_READY;
+  sendOutput("[MODEM] Modem lief noch und ist eingebucht - sofort bereit.\n");
+  return true;
+}
+
+bool initModem(bool allowReuse) {
   modemState = MS_START;
   registered = false;
+  if (allowReuse && reuseRunningModem()) return true;
   sendOutput("[MODEM] Starte A7670G...\n");
   hardPowerCycleModem();
 
@@ -286,7 +312,8 @@ void modemTask(void*) {
   // Annahme: vor dem Start war Strom da. Startet das Board waehrend eines
   // Ausfalls neu (z.B. Spannungseinbruch beim Umschalten auf Akku), geht
   // trotzdem die Alarm-SMS raus.
-  bool notifiedState = true;
+  bool notifiedState = (rtcNotifiedOnline != 0);
+  bool firstInit = true;
   unsigned long lastFailAt = 0;
   bool hadFailure = false;
   unsigned long lastCheck = 0;
@@ -294,7 +321,9 @@ void modemTask(void*) {
 
   for (;;) {
     if (modemState != MS_READY) {
-      if (!initModem()) { vTaskDelay(pdMS_TO_TICKS(30000)); continue; }
+      bool ok = initModem(firstInit);
+      firstInit = false;
+      if (!ok) { vTaskDelay(pdMS_TO_TICKS(30000)); continue; }
       lostCount = 0;
       lastCheck = millis();
     }
@@ -314,6 +343,7 @@ void modemTask(void*) {
       sendOutput("[SMS] Sende: " + msg + "\n");
       if (sendSMS(msg)) {
         notifiedState = current;
+        rtcNotifiedOnline = current ? 1 : 0;
         hadFailure = false;
         smsState = SMS_SENT;
         sendOutput("[SMS] Erfolgreich gesendet!\n");
@@ -406,7 +436,14 @@ void setup() {
   analogSetAttenuation(ADC_11db);
 
   sendOutput("\n=== NETZWAECHTER MIT SMS-ALARM GESTARTET ===\n");
-  sendOutput("[BOOT] Neustart-Grund: " + resetReasonText() + "\n");
+  if (rtcMagic != RTC_MAGIC) {          // echter Kaltstart: RTC-Speicher ist Muell
+    rtcMagic = RTC_MAGIC;
+    rtcNotifiedOnline = 1;               // Annahme: vorher war Strom da
+    rtcBootCount = 0;
+  }
+  rtcBootCount++;
+  bootReason = resetReasonText();
+  sendOutput("[BOOT] Start #" + String(rtcBootCount) + ", Grund: " + bootReason + "\n");
 
   // Modem-Task auf Core 0, Arduino-Loop laeuft auf Core 1
   xTaskCreatePinnedToCore(modemTask, "modem", 8192, nullptr, 1, nullptr, 0);
@@ -462,7 +499,8 @@ void loop() {
                   "] | Netzteil-In: " + String(vSolarAvg, 2) + "V" +
                   " | Akku: " + String(percent) + "% (" + String(vBatAvg, 2) + "V)" +
                   " | Modem: " + modemStatusText() +
-                  " | SMS: " + smsStatusText() + "\n";
+                  " | SMS: " + smsStatusText() +
+                  " | Starts: " + String(rtcBootCount) + " (" + bootReason + ")\n";
     sendOutput(line);
   }
 }
