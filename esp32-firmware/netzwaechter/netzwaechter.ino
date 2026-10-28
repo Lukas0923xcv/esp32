@@ -64,6 +64,7 @@ enum SmsState   { SMS_NONE, SMS_SENDING, SMS_SENT, SMS_FAILED };
 volatile ModemState modemState = MS_START;
 volatile bool       registered = false;
 volatile int        signalCsq  = 99;
+volatile int        lastCereg  = -1;
 volatile SmsState   smsState   = SMS_NONE;
 
 // ================== Ausgabe ==================
@@ -160,6 +161,7 @@ int regStatus(const String& resp, const char* tag) {
 bool isRegistered() {
   int creg  = regStatus(sendAT("AT+CREG?"),  "+CREG:");
   int cereg = regStatus(sendAT("AT+CEREG?"), "+CEREG:");
+  lastCereg = cereg;
   return (creg == 1 || creg == 5 || cereg == 1 || cereg == 5);
 }
 
@@ -167,6 +169,18 @@ void updateSignal() {
   String r = sendAT("AT+CSQ");
   int i = r.indexOf("+CSQ:");
   if (i >= 0) signalCsq = r.substring(i + 5).toInt();
+}
+
+// Haengt das Modem in "nur Notruf" (Status 11) oder sucht zu lange:
+// Funk aus/ein und Sunrise direkt waehlen (Fallback: automatisch).
+void nudgeNetwork() {
+  sendOutput("[MODEM] Einbuchen haengt (Status " + String((int)lastCereg) +
+             "), setze Funk zurueck und waehle Sunrise...\n");
+  sendAT("AT+CFUN=0", 10000);
+  vTaskDelay(pdMS_TO_TICKS(3000));
+  sendAT("AT+CFUN=1", 10000);
+  vTaskDelay(pdMS_TO_TICKS(5000));
+  sendAT("AT+COPS=4,2,\"22802\",7", 90000);   // Sunrise LTE, sonst automatisch
 }
 
 bool waitForSim() {
@@ -218,9 +232,12 @@ bool initModem() {
 
   modemState = MS_READY;
   sendOutput("[MODEM] Registriere im LTE-Netz...\n");
-  for (int i = 0; i < 60 && !registered; i++) {
+  for (int i = 0; i < 90 && !registered; i++) {
     registered = isRegistered();
-    if (!registered) vTaskDelay(pdMS_TO_TICKS(2000));
+    if (!registered) {
+      if (i == 15 || i == 50) nudgeNetwork();   // nach ~1 min und ~3 min nachhelfen
+      vTaskDelay(pdMS_TO_TICKS(2000));
+    }
   }
   updateSignal();
   sendOutput(registered ? "[MODEM] Eingebucht und sendebereit!\n"
@@ -313,9 +330,13 @@ void modemTask(void*) {
       updateSignal();
       if (registered) {
         lostCount = 0;
-      } else if (++lostCount >= 5) {
-        sendOutput("[MODEM] Netz seit ~2,5 min weg - starte Modem neu.\n");
-        modemState = MS_START;
+      } else {
+        lostCount++;
+        if (lostCount == 2 || lostCount == 6) nudgeNetwork();
+        if (lostCount >= 10) {
+          sendOutput("[MODEM] Netz seit ~5 min weg - starte Modem neu.\n");
+          modemState = MS_START;
+        }
       }
     }
 
@@ -328,7 +349,9 @@ String modemStatusText() {
     case MS_START:    return "START";
     case MS_NO_MODEM: return "FEHLER";
     case MS_NO_SIM:   return "KEINE SIM";
-    default:          return registered ? "OK (" + String((int)signalCsq) + ")" : "SUCHE NETZ";
+    default:          return registered ? "OK (" + String((int)signalCsq) + ")"
+                                        : "SUCHE NETZ (Status " + String((int)lastCereg) +
+                                          ", Signal " + String((int)signalCsq) + ")";
   }
 }
 
