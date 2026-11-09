@@ -21,8 +21,19 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 
-#define SMS_TARGET_NUMBER "+41790000000"   // Standard-Empfaenger und Admin (darf immer SMS-Befehle senden)
-#define SIM_PIN           "0000"
+// Persoenliche Werte (Admin-Nummer, SIM-PIN) stehen in secrets.h (nicht auf GitHub).
+// Vorlage: secrets.example.h -> nach secrets.h kopieren und eigene Werte eintragen.
+#if __has_include("secrets.h")
+#include "secrets.h"
+#else
+#warning "secrets.h fehlt - keine Admin-Nummer, SIM-PIN wird nicht gesendet (siehe secrets.example.h)"
+#endif
+#ifndef SMS_TARGET_NUMBER
+#define SMS_TARGET_NUMBER ""   // Standard-Empfaenger und Admin (darf immer SMS-Befehle senden)
+#endif
+#ifndef SIM_PIN
+#define SIM_PIN           ""   // leer = keine PIN senden (verhindert Fehlversuche/PUK-Sperre)
+#endif
 
 // ================== Pins (LilyGO T-A7670G) ==================
 #define BOARD_POWER_ON    12  // Modem-Versorgung
@@ -430,6 +441,10 @@ bool waitForSim() {
     String r = sendAT("AT+CPIN?");
     if (r.indexOf("READY") >= 0) return true;
     if (r.indexOf("SIM PIN") >= 0 && !pinTried) {
+      if (strlen(SIM_PIN) == 0) {
+        sendOutput("[MODEM] !! SIM verlangt PIN, aber SIM_PIN ist nicht gesetzt (secrets.h)\n");
+        return false;
+      }
       pinTried = true;
       String p = sendAT(String("AT+CPIN=") + SIM_PIN, 5000);
       if (p.indexOf("OK") < 0) {
@@ -567,7 +582,7 @@ bool isMuted() {
   return until != 0 && (long)(until - millis()) > 0;
 }
 
-// Letzte 9 Ziffern: +41790000000, 0790000000 und 0041790000000 gelten als gleich
+// Letzte 9 Ziffern: +41791234567, 0791234567 und 0041791234567 gelten als gleich
 String numberTail(const String& n) {
   String d;
   for (int i = 0; i < (int)n.length(); i++) if (isdigit((unsigned char)n[i])) d += n[i];

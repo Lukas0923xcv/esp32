@@ -10,7 +10,7 @@ Du kannst den Netzwächter von überall aus per SMS einstellen und abfragen, ohn
 
 **Wer darf Befehle schicken?**
 - Alle Nummern, die als **Empfänger** eingetragen sind (in der App oder mit `/nummer neu`).
-- Die fest eingestellte **Admin-Nummer** (`SMS_TARGET_NUMBER` im Code). Sie funktioniert immer, damit du dich nicht aussperren kannst.
+- Die fest eingestellte **Admin-Nummer** (`SMS_TARGET_NUMBER` in `esp32-firmware/netzwaechter/secrets.h`, Vorlage: `secrets.example.h`). Sie funktioniert immer, damit du dich nicht aussperren kannst.
 - SMS von anderen Nummern werden **ignoriert und nicht beantwortet**.
 
 **Gut zu wissen**
