@@ -1,17 +1,9 @@
-# lilygo_netzwaechter
+# LilyGO-Netzwächter – Android-App
 
-A new Flutter project.
+Flutter-App für den LilyGO-Netzwächter: Live-Status per Bluetooth, SMS-Einstellungen,
+Benachrichtigung bei Stromausfall, Event-Log und ein Demo-Modus ohne Hardware.
 
-## Getting Started
+- `lib/main.dart` – Verbindung, Dashboard, Diagnose, Event-Log, Benachrichtigungen
+- `lib/sms_settings_screen.dart` – Empfänger, SMS-Texte, Verzögerungen, Akku-Warnung, SMS-Fernsteuerung
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Download, Einrichtung und Build: siehe [README im Hauptverzeichnis](../README.md#2-android-app).
