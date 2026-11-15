@@ -1,5 +1,7 @@
 # Netzwächter per SMS steuern
 
+← [Zurück zur Übersicht](../README.md)
+
 Du kannst den Netzwächter von überall aus per SMS einstellen und abfragen, ohne vor Ort zu sein.
 
 ## So funktioniert's
